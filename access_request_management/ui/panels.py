@@ -77,7 +77,6 @@ class CustomImageAttachmentPanel(Panel):
     
     def get_context(self, context):
         obj= context["object"]
-        print(obj.pk)
         uploaded_files= UploadedFile.objects.filter(
             model_name= obj._meta.model_name,
             object_id= obj.pk

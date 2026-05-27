@@ -1,0 +1,11 @@
+
+{% extends 'generic/object.html' %}
+{% load render_table from django_tables2 %}
+{% load i18n %}
+{% block breadcrumbs %}
+  <li class="breadcrumb-item">
+    <a href="{% url 'plugins:access_request_management:accessrequest_access-members' pk=object.access_request_id %}">
+      {% trans "Access Request Members" %}
+    </a>
+  </li>
+{% endblock breadcrumbs %}

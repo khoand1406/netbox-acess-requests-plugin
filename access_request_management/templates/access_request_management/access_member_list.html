@@ -1,0 +1,185 @@
+{% extends 'generic/object.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <strong>{% trans "Member List" %}</strong>
+    </div>
+
+    <div class="card-body p-0">
+        {% if members %}
+        <table class="table table-hover mb-0">
+            <thead>
+                <tr>
+                    <th>{% trans "Identity Code" %}</th>
+                    <th>{% trans "Full Name" %}</th>
+                    <th>{% trans "Status" %}</th>
+                    <th>{% trans "Organization" %}</th>
+                    <th>{% trans "Job Title" %}</th>
+                    <th>{% trans "Phone Number" %}</th>
+                    <th>{% trans "Location" %}</th>
+                    <th>{% trans "Description" %}</th>
+                    <th>{% trans "Created" %}</th>
+                    <th>{% trans "Last Updated" %}</th>
+                    <th class="text-end">{% trans "Actions" %}</th>
+                </tr>
+            </thead>
+
+            <tbody>
+                {% for member in members %}
+                <tr>
+                    <td>{{ member.identity_code }}</td>
+
+                    <td>
+                        <a href="{{ member.get_absolute_url }}">
+                            {{ member.full_name }}
+                        </a>
+                    </td>
+                    <td>
+                        <span class="badge text-bg-{{ member.get_status_color }}">
+                            {{ member.get_status_display }}
+                        </span>
+                    </td>
+
+                    <td>{{ member.organization|default:"-" }}</td>
+
+                    <td>{{ member.job_title|default:"-" }}</td>
+
+                    <td>{{ member.phone_number|default:"-" }}</td>
+
+                    <td>
+                        {% if member.location %}
+                        <a href="{{ member.location.get_absolute_url }}">
+                            {{ member.location }}
+                        </a>
+                        {% else %} - {% endif %}
+                    </td>
+
+                    <td>
+                        {{ member.description|default:"-"|truncatechars:100 }}
+                    </td>
+
+                    <td class="text-muted small">
+                        {{ member.created|date:"d/m/Y H:i" }}
+                    </td>
+
+                    <td class="text-muted small">
+                        {{ member.last_updated|date:"d/m/Y H:i" }}
+                    </td>
+
+                    <td class="text-end text-nowrap">
+                        {% if is_superuser %}
+                        {% if confirmed %}
+                        {% if member.status == 'pending' %}
+                        <button class="btn btn-sm btn-outline-success btn-verify" data-pk="{{ member.pk }}"
+                            data-name="{{ member.full_name }}" title="{% trans 'Verify' %}">
+                            <i class="mdi mdi-check"></i>
+                        </button>
+                        <button class="btn btn-sm btn-outline-danger btn-unverify" data-pk="{{ member.pk }}"
+                            data-name="{{ member.full_name }}" title="{% trans 'Unverify' %}">
+                            <i class="mdi mdi-close"></i>
+                        </button>
+                        {% elif member.status == 'verified' %}
+                        <button class="btn btn-sm btn-outline-danger btn-unverify" data-pk="{{ member.pk }}"
+                            data-name="{{ member.full_name }}" title="{% trans 'Unverify' %}">
+                            <i class="mdi mdi-close"></i>
+                        </button>
+                        {% elif member.status == 'unverified' %}
+                        <button class="btn btn-sm btn-outline-success btn-verify" data-pk="{{ member.pk }}"
+                            data-name="{{ member.full_name }}" title="{% trans 'Verify' %}">
+                            <i class="mdi mdi-check"></i>
+                        </button>
+                        {% endif %}
+                        {% endif %}
+                        {% else %}
+                        {% if member.is_editable %}
+                        <a href="{% url 'plugins:access_request_management:accessrequestperson_edit' pk=member.pk %}"
+                            class="btn btn-sm btn-outline-warning" title="{% trans 'Edit' %}">
+                            <i class="mdi mdi-pencil"></i>
+                        </a>
+                        {% endif %} {% if member.is_deletable %}
+                        <a href="{% url 'plugins:access_request_management:accessrequestperson_delete' pk=member.pk %}"
+                            class="btn btn-sm btn-outline-danger" title="{% trans 'Delete' %}">
+                            <i class="mdi mdi-trash-can-outline"></i>
+                        </a>
+                        {% endif %}
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        {% else %}
+        <p class="text-muted p-3 mb-0">{% trans "No members found." %}</p>
+        {% endif %}
+    </div>
+</div>
+<div class="toast-container position-fixed bottom-0 end-0 p-3" id="toast-container"></div>
+
+<div class="modal fade" id="confirmActionModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header border-0 pb-0">
+                <button type="button" class="btn-close" onclick="hideModal('confirmActionModal')">
+                </button>
+            </div>
+            <div class="modal-body text-center px-4 pt-0 pb-2">
+                <div id="confirmModalIcon"
+                    class="rounded-circle d-inline-flex align-items-center justify-content-center mb-3"
+                    style="width: 52px; height: 52px; font-size: 22px">
+                    <i id="confirmModalIconI" class="mdi"></i>
+                </div>
+                <h5 class="modal-title mb-1" id="confirmModalTitle"></h5>
+                <p class="text-muted small mb-0" id="confirmModalBody"></p>
+            </div>
+            <div class="modal-footer border-0 justify-content-center gap-2 pt-2">
+                <button type="button" class="btn btn-sm btn-secondary px-4" onclick="hideModal('confirmActionModal')">
+                    {% trans "Cancel" %}
+                </button>
+                <button type="button" class="btn btn-sm px-4" id="confirmActionBtn">
+                    {% trans "Confirm" %}
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+<script>
+    window.MEMBER_LIST_CONFIG = {
+        csrfToken: "{{ csrf_token }}",
+        translations: {
+            verifyMember: "{% trans 'Verify member' %}",
+            unverifyMember: "{% trans 'Unverify member' %}",
+            confirmVerify: "{% trans 'Are you sure you want to verify' %}",
+            confirmUnverify: "{% trans 'Are you sure you want to unverify' %}",
+            verify: "{% trans 'Verify' %}",
+            unverify: "{% trans 'Unverify' %}",
+            success: "{% trans 'Action completed successfully.' %}",
+            error: "{% trans 'An error occurred.' %}",
+            connectionError: "{% trans 'Connection error.' %}",
+        }
+    };
+</script>
+<script src="{% static 'js/access_member_list.js' %}"></script>
+{% endblock %}
+{% block extra_controls %}
+{% if not is_superuser %}
+{% if perms.access_request_management.add_accessrequestperson %}
+<a href="{% url 'plugins:access_request_management:accessrequestperson_add' %}?access_request={{ object.pk }}&return_url={{ request.path }}"
+    class="btn btn-primary">
+    <i class="mdi mdi-plus-thick" aria-hidden="true"></i>
+    {% trans "Add Member" %}
+</a>
+
+<a href="{% url 'plugins:access_request_management:accessrequestperson_import' %}?access_request={{ object.pk }}&return_url={{ request.path }}"
+    class="btn btn-warning">
+    <i class="mdi mdi-plus-thick" aria-hidden="true"></i>
+    {% trans "Import Member" %}
+</a>
+{% endif %}
+{% endif %}
+
+
+{% endblock %}

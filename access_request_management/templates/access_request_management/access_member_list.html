@@ -1,7 +1,6 @@
 {% extends 'generic/object.html' %}
 {% load static %}
 {% load i18n %}
-
 {% block content %}
 <div class="card">
     <div class="card-header">
@@ -18,9 +17,8 @@
                     <th>{% trans "Status" %}</th>
                     <th>{% trans "Organization" %}</th>
                     <th>{% trans "Job Title" %}</th>
-                    <th>{% trans "Phone Number" %}</th>
-                    <th>{% trans "Location" %}</th>
-                    <th>{% trans "Description" %}</th>
+                    <th>{% trans "Attachments" %}</th>
+                    <th>{% trans "Entry Status" %}</th>
                     <th>{% trans "Created" %}</th>
                     <th>{% trans "Last Updated" %}</th>
                     <th class="text-end">{% trans "Actions" %}</th>
@@ -47,20 +45,22 @@
 
                     <td>{{ member.job_title|default:"-" }}</td>
 
-                    <td>{{ member.phone_number|default:"-" }}</td>
-
                     <td>
-                        {% if member.location %}
-                        <a href="{{ member.location.get_absolute_url }}">
-                            {{ member.location }}
-                        </a>
-                        {% else %} - {% endif %}
+                        {% with attachments=member.prefetched_attachments %}
+                        {% if attachments %}
+                        <span class="badge text-bg-primary">
+                            <i class="mdi mdi-paperclip"></i>
+                            {{ attachments|length }}
+                        </span>
+                        {% else %} -
+                        {% endif %}
+                        {% endwith %}
                     </td>
-
                     <td>
-                        {{ member.description|default:"-"|truncatechars:100 }}
+                        <span class="badge text-bg-{{ member.get_entry_status_color }}">
+                            {{ member.get_entry_status_display }}
+                        </span>
                     </td>
-
                     <td class="text-muted small">
                         {{ member.created|date:"d/m/Y H:i" }}
                     </td>
@@ -93,13 +93,27 @@
                         </button>
                         {% endif %}
                         {% endif %}
+                        {% if approved %}
+                        {% if member.entry_status == 'pending' or member.entry_status == 'out' %}
+                        <button class="btn btn-sm btn-outline-success btn-checkin" data-pk="{{ member.pk }}"
+                            data-name="{{ member.full_name }}" title="{% trans 'Check In' %}" onclick="openConfirmModal()">
+                            <i class="mdi mdi-login"></i>
+                        </button>
+                        {% elif member.entry_status == 'in' %}
+                        <button class="btn btn-sm btn-outline-danger btn-checkout" data-pk="{{ member.pk }}"
+                            data-name="{{ member.full_name }}" title="{% trans 'Check Out' %}">
+                            <i class="mdi mdi-logout"></i>
+                        </button>
+                        {% endif %}
+                        {% endif %}
                         {% else %}
                         {% if member.is_editable %}
                         <a href="{% url 'plugins:access_request_management:accessrequestperson_edit' pk=member.pk %}"
                             class="btn btn-sm btn-outline-warning" title="{% trans 'Edit' %}">
                             <i class="mdi mdi-pencil"></i>
                         </a>
-                        {% endif %} {% if member.is_deletable %}
+                        {% endif %}
+                        {% if member.is_deletable %}
                         <a href="{% url 'plugins:access_request_management:accessrequestperson_delete' pk=member.pk %}"
                             class="btn btn-sm btn-outline-danger" title="{% trans 'Delete' %}">
                             <i class="mdi mdi-trash-can-outline"></i>
@@ -123,8 +137,7 @@
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
             <div class="modal-header border-0 pb-0">
-                <button type="button" class="btn-close" onclick="hideModal('confirmActionModal')">
-                </button>
+                <button type="button" class="btn-close" onclick="hideModal('confirmActionModal')"></button>
             </div>
             <div class="modal-body text-center px-4 pt-0 pb-2">
                 <div id="confirmModalIcon"
@@ -159,8 +172,45 @@
             success: "{% trans 'Action completed successfully.' %}",
             error: "{% trans 'An error occurred.' %}",
             connectionError: "{% trans 'Connection error.' %}",
-        }
+        },
     };
+    document.addEventListener("click", function (e) {
+    const checkinBtn = e.target.closest(".btn-checkin");
+    const checkoutBtn = e.target.closest(".btn-checkout");
+
+    if (checkinBtn) {
+        const pk = checkinBtn.dataset.pk;
+        const name = checkinBtn.dataset.name;
+        openConfirmModal({
+            pk,
+            action: "check-in",
+            name,
+            title: '{% trans "Confirm" %}',
+            message: `{% trans "Are you sure you want to check in for" %} ${name}?`,
+            btnClass: "btn-success",
+            btnLabel: '{% trans "Check in" %}',
+            iconClass: "mdi-login",
+            iconBg: "bg-success-subtle text-success",
+        });
+    }
+
+    if (checkoutBtn) {
+        const pk = checkoutBtn.dataset.pk;
+        const name = checkoutBtn.dataset.name;
+        openConfirmModal({
+            pk,
+            action: "check-out",
+            name,
+            title: '{% trans "Check Out" %}',
+            message: `{% trans "Are you sure you want to check out for" %} ${name}?`,
+            btnClass: "btn-danger",
+            btnLabel: "{% trans 'Check out' %}",
+            iconClass: "mdi-logout",
+            iconBg: "bg-danger-subtle text-danger",
+        });
+    }
+
+});
 </script>
 <script src="{% static 'js/access_member_list.js' %}"></script>
 {% endblock %}
@@ -180,6 +230,4 @@
 </a>
 {% endif %}
 {% endif %}
-
-
 {% endblock %}

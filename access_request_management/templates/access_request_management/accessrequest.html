@@ -5,19 +5,15 @@
 
 {% block extra_controls %}
 
-<link rel="stylesheet"
-      href="{% static 'css/access_request.css' %}">
+<link rel="stylesheet" href="{% static 'css/access_request.css' %}">
 
 {% if submit %}
-<form id="submit-access-request-form"
-      class="d-inline"
-      data-url="/api/plugins/access_request_management/access-requests/{{ object.pk }}/submit/">
+<form id="submit-access-request-form" class="d-inline"
+    data-url="/api/plugins/access_request_management/access-requests/{{ object.pk }}/submit/">
 
     {% csrf_token %}
 
-    <button type="submit"
-            class="btn btn-success btn-send"
-            id="btn-submit">
+    <button type="submit" class="btn btn-success btn-send" id="btn-submit">
         <i class="mdi mdi-send"></i>
         {% trans 'Send' %}
     </button>
@@ -26,24 +22,52 @@
 
 {% if is_admin %}
 
-{% if is_approved or is_rejected %}
+{% if is_approved %}
+<button type="button" class="btn btn-success" onclick="showModal('confirmFinishModal')">
+    <i class="mdi mdi-check-circle"></i>
+    {% trans 'Finish' %}
+</button>
+<div class="modal fade" id="confirmFinishModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-success">
+                <h5 class="modal-title">
+                    <i class="mdi mdi-alert"></i>
+                    {% trans 'Confirm Finishment' %}
+                </h5>
+                <button type="button" class="btn-close" onclick="hideModal('confirmFinishModal')"></button>
+            </div>
+            <div class="modal-body">
+                <p>{% trans 'Are you sure to finish this access request?' %}</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="hideModal('confirmFinishModal')">
+                    {% trans 'Cancel' %}
+                </button>
+                <button type="button" class="btn btn-success" onclick="handleAction('finish')">
+                    <i class="mdi mdi-check-circle"></i>
+                    {% trans 'Confirm' %}
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+{% elif is_rejected %}
 
 {% elif confirmed %}
-<button type="button"
-        class="btn btn-success"
-        onclick="handleApprove()">
+<button type="button" class="btn btn-success" onclick="handleApprove()">
     <i class="mdi mdi-check-circle"></i>
     {% trans 'Approve' %}
 </button>
 
-<button type="button"
-        class="btn btn-danger"
-        onclick="handleReject()">
+<button type="button" class="btn btn-danger" onclick="handleReject()">
     <i class="mdi mdi-close-circle"></i>
     {% trans 'Reject' %}
 </button>
 
-<!-- Popup cảnh báo người không hợp lệ -->
+
 <div class="modal fade" id="invalidPersonModal" tabindex="-1">
     <div class="modal-dialog">
         <div class="modal-content">
@@ -59,13 +83,15 @@
                 <ul id="invalidPersonList"></ul>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" onclick="hideModal('invalidPersonModal')">{% trans 'Cancel' %}</button>
+                <button type="button" class="btn btn-secondary" onclick="hideModal('invalidPersonModal')">
+                    {% trans 'Cancel' %}
+                </button>
             </div>
         </div>
     </div>
 </div>
 
-<!-- Popup xác nhận approve -->
+
 <div class="modal fade" id="approveConfirmModal" tabindex="-1">
     <div class="modal-dialog">
         <div class="modal-content">
@@ -80,11 +106,13 @@
                 <p>{% trans 'Are you sure to approve this access request' %}</p>
                 <div class="mb-3">
                     <label for="approveReason" class="form-label">{% trans 'Reason' %}</label>
-                    <textarea id="approveReason" class="form-control" rows="3" placeholder="{% trans 'Enter Reason' %}"></textarea>
+                    <textarea id="approveReason" class="form-control" rows="3"
+                        placeholder="{% trans 'Enter Reason' %}"></textarea>
                 </div>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" onclick="hideModal('approveConfirmModal')">{% trans 'Cancel' %}</button>
+                <button type="button" class="btn btn-secondary" onclick="hideModal('approveConfirmModal')">
+                    {% trans 'Cancel' %}</button>
                 <button type="button" class="btn btn-success" onclick="confirmApprove()">
                     <i class="mdi mdi-check"></i>
                     {% trans 'Confirm' %}
@@ -108,11 +136,13 @@
                 <p>{% trans 'Are you sure to reject this access request' %}</p>
                 <div class="mb-3">
                     <label for="rejectReason" class="form-label">{% trans 'Reason' %}</label>
-                    <textarea id="rejectReason" class="form-control" rows="3" placeholder="{% trans 'Enter reason' %}"></textarea>
+                    <textarea id="rejectReason" class="form-control" rows="3"
+                        placeholder="{% trans 'Enter reason' %}"></textarea>
                 </div>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" onclick="hideModal('rejectConfirmModal')">{% trans 'Cancel' %}</button>
+                <button type="button" class="btn btn-secondary" onclick="hideModal('rejectConfirmModal')">
+                    {% trans 'Cancel' %}</button>
                 <button type="button" class="btn btn-danger" onclick="confirmReject()">
                     <i class="mdi mdi-check"></i>
                     {% trans 'Reject' %}
@@ -123,149 +153,98 @@
 </div>
 
 <script>
-    function showModal(id) {
-    const el = document.getElementById(id);
-    // Thử bootstrap global trước
-    if (typeof bootstrap !== 'undefined') {
-        new bootstrap.Modal(el).show();
-    } 
-    // Fallback jQuery
-    else if (typeof $ !== 'undefined') {
-        $(el).modal('show');
-    }
-    // Fallback thuần
-    else {
-        el.style.display = 'block';
-        el.classList.add('show');
-        document.body.classList.add('modal-open');
-    }
-}
+    function handleApprove() {
+        const url = `/api/plugins/access_request_management/access-requests/{{ object.pk }}/approve/`;
 
-function hideModal(id) {
-    const el = document.getElementById(id);
-    if (typeof bootstrap !== 'undefined') {
-        bootstrap.Modal.getInstance(el)?.hide();
-    } else if (typeof $ !== 'undefined') {
-        $(el).modal('hide');
-    } else {
-        el.style.display = 'none';
-        el.classList.remove('show');
-        document.body.classList.remove('modal-open');
+        fetch(url, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}',
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ check_only: true })
+        })
+            .then(res => {
+                if (!res.ok) {
+                    return res.json().then(data => {
+                        if (data.invalid_members) {
+                            const list = document.getElementById('invalidPersonList');
+                            list.innerHTML = data.invalid_members.map(p =>
+                                `<li><strong>${p.identity_code}</strong> - ${p.full_name}</li>`
+                            ).join('');
+                            showModal('invalidPersonModal')
+                        } else {
+                            showToast('{% trans "Error occurs"}', 'error');
+                        }
+                    });
+                }
+                return res.json().then(() => {
+                    document.getElementById('approveReason').value = '';
+                    showModal('approveConfirmModal')
+                });
+            })
+            .catch(err => showToast('{% trans "Error occurs"}', 'error'));
     }
-}
-function handleAction(action) {
-    const url = `/api/plugins/access_request_management/access-requests/{{ object.pk }}/${action}/`;
-    fetch(url, {
-        method: 'POST',
-        headers: {
-            'X-CSRFToken': '{{ csrf_token }}',
-            'Content-Type': 'application/json',
-        },
-    })
-    .then(res => res.json())
-    .then(data => {
-        if (data.success || res.ok) {
-            window.location.reload();
-        } else {
-            showToast('{% trans "Error occurs"}', 'error');
-        }
-    })
-    .catch(err => showToast('{% trans "Error occurs"}', 'error'));
-}
 
-function handleApprove() {
-    const url = `/api/plugins/access_request_management/access-requests/{{ object.pk }}/approve/`;
-    
-    fetch(url, {
-        method: 'POST',
-        headers: {
-            'X-CSRFToken': '{{ csrf_token }}',
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ check_only: true })
-    })
-    .then(res => {
-        if (!res.ok) {
-            return res.json().then(data => {
-                if (data.invalid_members) {
-                    const list = document.getElementById('invalidPersonList');
-                    list.innerHTML = data.invalid_members.map(p =>
-                        `<li><strong>${p.identity_code}</strong> - ${p.full_name}</li>`
-                    ).join('');
-                    showModal('invalidPersonModal')
+    function confirmApprove() {
+        const reason = document.getElementById('approveReason').value;
+        const url = `/api/plugins/access_request_management/access-requests/{{ object.pk }}/approve/`;
+
+        fetch(url, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}',
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ check_only: false, reason: reason })
+        })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    window.location.reload();
                 } else {
                     showToast('{% trans "Error occurs"}', 'error');
                 }
-            });
-        }
-        return res.json().then(() => {
-            document.getElementById('approveReason').value = '';
-            showModal('approveConfirmModal')
-        });
-    })
-    .catch(err => showToast('{% trans "Error occurs"}', 'error'));
-}
+            })
+            .catch(err => showToast('{% trans "Error occurs"}', 'error'));
+    }
+    function handleReject() {
+        document.getElementById('rejectReason').value = '';
+        showModal('rejectConfirmModal')
+    }
 
-function confirmApprove() {
-    const reason = document.getElementById('approveReason').value;
-    const url = `/api/plugins/access_request_management/access-requests/{{ object.pk }}/approve/`;
+    function confirmReject() {
+        const reason = document.getElementById('rejectReason').value;
+        const url = `/api/plugins/access_request_management/access-requests/{{ object.pk }}/reject/`;
+        fetch(url, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}',
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ 'reason': reason })
+        }).then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    window.location.reload();
+                } else {
+                    showToast('{% trans "Error occurs"}', 'error')
+                }
+            })
+            .catch(err => showToast('{% trans "Error occurs"}', 'error'));
 
-    fetch(url, {
-        method: 'POST',
-        headers: {
-            'X-CSRFToken': '{{ csrf_token }}',
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ check_only: false, reason: reason })
-    })
-    .then(res => res.json())
-    .then(data => {
-        if (data.success) {
-            window.location.reload();
-        } else {
-            showToast('{% trans "Error occurs"}', 'error');
-        }
-    })
-    .catch(err => showToast('{% trans "Error occurs"}', 'error'));
-}
-function handleReject(){
-    document.getElementById('rejectReason').value= '';
-    showModal('rejectConfirmModal')
-}
-
-function confirmReject(){
-    const reason= document.getElementById('rejectReason').value;
-    const url= `/api/plugins/access_request_management/access-requests/{{ object.pk }}/reject/`;
-    fetch(url, {
-        method:'POST',
-        headers: {
-            'X-CSRFToken': '{{ csrf_token }}',
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({'reason': reason})
-    }).then(res=> res.json())
-        .then(data => {
-        if (data.success) {
-            window.location.reload();
-        } else {
-            showToast('{% trans "Error occurs"}', 'error')
-        }
-    })
-    .catch(err => showToast('{% trans "Error occurs"}', 'error'));
-
-}
+    }
 </script>
+{% elif is_finished %}
+
 {% else %}
 
-<form id="confirm-access-request-form"
-      class="d-inline"
-      data-url="/api/plugins/access_request_management/access-requests/{{ object.pk }}/confirm/">
+<form id="confirm-access-request-form" class="d-inline"
+    data-url="/api/plugins/access_request_management/access-requests/{{ object.pk }}/confirm/">
 
     {% csrf_token %}
 
-    <button type="submit"
-            class="btn btn-success btn-send"
-            id="btn-confirm">
+    <button type="submit" class="btn btn-success btn-send" id="btn-confirm">
         <i class="mdi mdi-check-circle"></i>
         Confirm
     </button>
@@ -277,12 +256,57 @@ function confirmReject(){
 <div class="toast-container position-fixed bottom-0 end-0 p-3" id="toast-container"></div>
 <script src="{% static 'js/access_request.js' %}"></script>
 <script>
+    function showModal(id) {
+        const el = document.getElementById(id);
+        console.log(el)
+        if (typeof bootstrap !== 'undefined') {
+            new bootstrap.Modal(el).show();
+        } else if (typeof $ !== 'undefined') {
+            $(el).modal('show');
+        } else {
+            el.style.display = 'block';
+            el.classList.add('show');
+            document.body.classList.add('modal-open');
+        }
+    }
+
+    function hideModal(id) {
+        const el = document.getElementById(id);
+        if (typeof bootstrap !== 'undefined') {
+            bootstrap.Modal.getInstance(el)?.hide();
+        } else if (typeof $ !== 'undefined') {
+            $(el).modal('hide');
+        } else {
+            el.style.display = 'none';
+            el.classList.remove('show');
+            document.body.classList.remove('modal-open');
+        }
+    }
+    function handleAction(action) {
+        const url = `/api/plugins/access_request_management/access-requests/{{ object.pk }}/${action}/`;
+        fetch(url, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}',
+                'Content-Type': 'application/json',
+            },
+        })
+            .then(res => res.json())
+            .then(data => {
+                if (data.id || res.ok) {
+                    window.location.reload();
+                } else {
+                    showToast('{% trans "Error occurs"}', 'error');
+                }
+            })
+            .catch(err => showToast('{% trans "Error occurs" %}', 'error'));
+    }
     function showToast(message, type = "success") {
-    const container = document.getElementById("toast-container");
-    const id = "toast-" + Date.now();
-    const icon = type === "success" ? "mdi-check-circle" : "mdi-close-circle";
-    const colorClass = type === "success" ? "text-success" : "text-danger";
-    const html = `
+        const container = document.getElementById("toast-container");
+        const id = "toast-" + Date.now();
+        const icon = type === "success" ? "mdi-check-circle" : "mdi-close-circle";
+        const colorClass = type === "success" ? "text-success" : "text-danger";
+        const html = `
       <div id="${id}" class="toast align-items-center border-0 shadow-sm" role="alert">
         <div class="d-flex align-items-center p-2">
           <i class="mdi ${icon} ${colorClass} me-2 fs-5"></i>
@@ -290,19 +314,19 @@ function confirmReject(){
           <button type="button" class="btn-close ms-auto me-1" data-bs-dismiss="toast"></button>
         </div>
       </div>`;
-    container.insertAdjacentHTML("beforeend", html);
-    const toastEl = document.getElementById(id);
-    if (typeof bootstrap !== "undefined") {
-        const bsToast = bootstrap.Toast.getOrCreateInstance(toastEl, { delay: 4000 });
-        bsToast.show();
-        toastEl.addEventListener("hidden.bs.toast", () => toastEl.remove());
-    } else {
-        toastEl.style.display = "block";
-        toastEl.classList.add("show");
-        setTimeout(() => toastEl.remove(), 4000);
-        toastEl.querySelector(".btn-close")?.addEventListener("click", () => toastEl.remove());
+        container.insertAdjacentHTML("beforeend", html);
+        const toastEl = document.getElementById(id);
+        if (typeof bootstrap !== "undefined") {
+            const bsToast = bootstrap.Toast.getOrCreateInstance(toastEl, { delay: 4000 });
+            bsToast.show();
+            toastEl.addEventListener("hidden.bs.toast", () => toastEl.remove());
+        } else {
+            toastEl.style.display = "block";
+            toastEl.classList.add("show");
+            setTimeout(() => toastEl.remove(), 4000);
+            toastEl.querySelector(".btn-close")?.addEventListener("click", () => toastEl.remove());
+        }
     }
-}
 </script>
 
 

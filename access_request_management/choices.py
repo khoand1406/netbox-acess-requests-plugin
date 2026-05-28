@@ -13,6 +13,7 @@ class AccessRequestStatusChoices(ChoiceSet):
     STATUS_APPROVED = 'approved'
     STATUS_REJECTED = 'rejected'
     STATUS_CANCELLED = 'cancelled'
+    STATUS_FINISHED= 'closed'
 
     CHOICES = [
         (STATUS_DRAFT, _('Draft'), 'gray'),
@@ -21,6 +22,7 @@ class AccessRequestStatusChoices(ChoiceSet):
         (STATUS_APPROVED, _('Approved'), 'green'),
         (STATUS_REJECTED, _('Rejected'), 'red'),
         (STATUS_CANCELLED, _('Cancelled'), 'orange'),
+        (STATUS_FINISHED, _('Close'), 'blue')
     ]
     
 class AccessRequestHistoryActionChoices(ChoiceSet):
@@ -36,6 +38,11 @@ class AccessRequestHistoryActionChoices(ChoiceSet):
     ACTION_CONFIRM_REQUEST= 'confirmed'
     ACTION_APPROVE_REQUEST= 'approved'
     ACTION_REJECT_REQUEST= 'rejected'
+    ACTION_FINISH_REQUEST='finished'
+    
+    ACTION_MEMBER_CHECK_IN= 'checkin'
+    ACTION_MEMBER_CHECK_OUT= 'checkout'
+    
     
     CHOICES = [
         (ACTION_ADD_MEM, _("Add Member"), 'blue'),
@@ -45,9 +52,12 @@ class AccessRequestHistoryActionChoices(ChoiceSet):
         (ACTION_UPDATE_REQUEST, _("Update Request"), 'orange'),
         (ACTION_CONFIRM_REQUEST, _("Confirmed Request"), 'blue'),
         (ACTION_APPROVE_REQUEST, _("Approve Request"), 'green'),
-        (ACTION_REJECT_REQUEST, _("Reject Request"), 'red')
-        
+        (ACTION_REJECT_REQUEST, _("Reject Request"), 'red'),
+        (ACTION_MEMBER_CHECK_IN, _("Check In"), 'green'),
+        (ACTION_MEMBER_CHECK_OUT, _("Check Out"), 'orange'),
+        (ACTION_FINISH_REQUEST, _("Finish Request"), 'blue')
     ]
+    
 class AccessRequestHistoryStatusChoices(ChoiceSet):
     key= 'AccessRequestHistory.status'
     
@@ -71,6 +81,20 @@ class AccessRequestPersonStatusChoices(ChoiceSet):
         (STATUS_PENDING, _('PENDING'), 'orange'),
         (STATUS_VERIFY, _('VERIFIED'), 'green'),
         (STATUS_UNVERIFY, _('UNVERIFIED'), 'red')
+    ]
+    
+    DEFAULT= STATUS_PENDING
+    
+class AccessRequestPersonEntryStatusChoice(ChoiceSet):
+    key= 'AccessRequestPerson.entry_status'
+    STATUS_PENDING= 'pending'
+    STATUS_IN= 'in'
+    STATUS_OUT= 'out'
+    
+    CHOICES= [
+        (STATUS_PENDING, _('PENDING'), 'grey'),
+        (STATUS_IN, _('IN'), 'green'),
+        (STATUS_OUT, _('OUT'), 'orange')
     ]
     
     DEFAULT= STATUS_PENDING

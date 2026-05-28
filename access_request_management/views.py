@@ -1,3 +1,4 @@
+from collections import defaultdict
 import json
 import logging
 import os
@@ -25,6 +26,7 @@ from utilities.views import ViewTab, register_model_view
 from . import models, tables, forms, filtersets
 from .ui.panels import AccessRequestPanel, AccessRequestPersonPanel, CustomImageAttachmentPanel
 from .bulk_import_forms import AccessRequestPersonBulkImportCSVForm
+from django.contrib.contenttypes.prefetch import GenericPrefetch
 from upload_file_plugin.models import UploadedFile
 from upload_file_plugin.views import SaveFilesView
 
@@ -87,10 +89,7 @@ class AccessRequestView(generic.ObjectView):
     )
     actions= (EditObject, DeleteObject)
     def get_permitted_actions(self, user, model=None):
-        
         instance = self.get_object(**self.kwargs)
-
-        
         filtered_actions = []
         for action in self.actions:
             if action == EditObject and not instance.is_editable:
@@ -110,9 +109,10 @@ class AccessRequestView(generic.ObjectView):
         return {
                 "is_admin":(request.user.is_superuser),
                 "confirmed":instance.is_confirmed,
-                "submit": instance.can_submit,
+                "submit": (instance.can_submit and not request.user.is_superuser),
                 "is_approved": instance.is_approved,
                 "is_rejected": instance.is_rejected,
+                "is_finished":instance.is_finished,
                 "is_editable": instance.is_editable,
                 "is_deletable": instance.is_deletable,
         }
@@ -127,10 +127,28 @@ class AccessRequestPersonListView(generic.ObjectView):
         weight=500
     )
     def get_extra_context(self, request, instance):
-        members= models.AccessRequestPerson.objects.filter(access_request_id= instance.pk)
-        print(instance)
+        members = (
+            models.AccessRequestPerson.objects
+            .filter(access_request_id=instance.pk)
+        )
+        model_name = models.AccessRequestPerson._meta.model_name
+        member_ids = [m.pk for m in members]
+
+        attachments_qs = UploadedFile.objects.filter(
+            model_name=model_name,
+            object_id__in=member_ids
+        )
+
+        attachments_map = defaultdict(list)
+        for f in attachments_qs:
+            attachments_map[f.object_id].append(f)
+            
+        for member in members:
+            member.prefetched_attachments = attachments_map.get(member.pk, [])
+    
         return {
             "is_superuser":(request.user.is_superuser),
+            "approved": instance.is_approved,
             "confirmed":instance.is_confirmed,
             "members": members
         }

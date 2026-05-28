@@ -15,8 +15,10 @@ from dcim.models.sites import Location
 from netbox import settings
 from netbox.models import NetBoxModel
 from django.utils.translation import gettext_lazy as _
-from .choices import AccessRequestHistoryActionChoices, AccessRequestHistoryStatusChoices, AccessRequestPersonStatusChoices, AccessRequestStatusChoices
+from django.contrib.contenttypes.fields import GenericRelation
+from .choices import AccessRequestHistoryActionChoices, AccessRequestHistoryStatusChoices, AccessRequestPersonEntryStatusChoice, AccessRequestPersonStatusChoices, AccessRequestStatusChoices
 from django.core.validators import RegexValidator
+from upload_file_plugin.models import UploadedFile
 
 
 class AccessRequest(NetBoxModel):
@@ -87,6 +89,7 @@ class AccessRequest(NetBoxModel):
             AccessRequestStatusChoices.STATUS_APPROVED: 'success',
             AccessRequestStatusChoices.STATUS_REJECTED: 'danger',
             AccessRequestStatusChoices.STATUS_CONFIRMED: 'success',
+            AccessRequestStatusChoices.STATUS_FINISHED: 'warning'
         }
         return status_colors.get(self.status, 'secondary')
     
@@ -94,17 +97,18 @@ class AccessRequest(NetBoxModel):
         return dict(
             (c[0], c[1]) for c in AccessRequestStatusChoices.CHOICES
         ).get(self.status, self.status)
+    
 
     @property
     def is_editable(self):
         return self.status not in (
             AccessRequestStatusChoices.STATUS_APPROVED,
+            AccessRequestStatusChoices.STATUS_FINISHED
         )
 
     @property
     def is_deletable(self):
-        
-        return self.is_editable
+        return self.is_editable 
     
     @property
     def can_submit(self):
@@ -125,6 +129,11 @@ class AccessRequest(NetBoxModel):
     def is_rejected(self):
         return (
             self.status== AccessRequestStatusChoices.STATUS_REJECTED
+        )
+    @property
+    def is_finished(self):
+        return (
+            self.status== AccessRequestStatusChoices.STATUS_FINISHED
         )
     
 class AccessRequestPerson(NetBoxModel):
@@ -156,6 +165,13 @@ class AccessRequestPerson(NetBoxModel):
         choices=AccessRequestPersonStatusChoices,
         default=AccessRequestPersonStatusChoices.STATUS_PENDING,   
         verbose_name=_("Status")
+    )
+    
+    entry_status= models.CharField(
+        max_length=20,
+        choices= AccessRequestPersonEntryStatusChoice,
+        default=AccessRequestPersonEntryStatusChoice.STATUS_PENDING,
+        verbose_name=_('Entry Status')
     )
 
     organization = models.CharField(
@@ -196,6 +212,13 @@ class AccessRequestPerson(NetBoxModel):
         blank=True,
         verbose_name=_('Description')
     )
+    
+    attachments = GenericRelation(
+        UploadedFile,
+        content_type_field='content_type',
+        object_id_field='object_id',
+        related_query_name='member'
+    )
 
     class Meta:
         ordering = ('last_updated',)
@@ -223,6 +246,14 @@ class AccessRequestPerson(NetBoxModel):
             AccessRequestPersonStatusChoices.STATUS_UNVERIFY: 'danger'
         }
         return status_colors.get(self.status, 'secondary')
+    
+    def get_entry_status_color(self):
+        entry_status_colors= {
+            AccessRequestPersonEntryStatusChoice.STATUS_PENDING: 'secondary',
+            AccessRequestPersonEntryStatusChoice.STATUS_IN: 'success',
+            AccessRequestPersonEntryStatusChoice.STATUS_OUT: 'orange'
+        }
+        return entry_status_colors.get(self.entry_status, 'secondary')
     
     def get_status_display(self):
         return dict(

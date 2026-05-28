@@ -10,7 +10,6 @@
             <thead>
                 <tr>
                     <th>{% trans "Performed By" %}</th>
-                    <th>{% trans "Full Name" %}</th>
                     <th>{% trans "Action" %}</th>
                     <th>{% trans "Status" %}</th>
                     <th>{% trans "Description" %}</th>
@@ -25,9 +24,6 @@
                         <a href="{{ history.perform_by.get_absolute_url }}">
                             {{ history.perform_by }}
                         </a>
-                    </td>
-                    <td>
-                        {{ history.perform_by.name}}
                     </td>
                     <td>
                         <span

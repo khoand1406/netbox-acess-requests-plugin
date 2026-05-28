@@ -8,12 +8,14 @@ For Django REST Framework viewsets, see:
 https://www.django-rest-framework.org/api-guide/viewsets/
 """
 
+from datetime import date
+
 from rest_framework.response import Response
 from rest_framework import status
 
 from netbox.api.viewsets import NetBoxModelViewSet
 from ..utils import create_access_request_history
-from ..models import AccessRequest, AccessRequestPerson, AccessRequestStatusChoices, AccessRequestHistoryStatusChoices, AccessRequestHistoryActionChoices, AccessRequestPersonStatusChoices
+from ..models import AccessRequest, AccessRequestPerson, AccessRequestPersonEntryStatusChoice, AccessRequestStatusChoices, AccessRequestHistoryStatusChoices, AccessRequestHistoryActionChoices, AccessRequestPersonStatusChoices
 from .serializers import AccessRequestPersonSerializer, AccessRequestSerializer
 from rest_framework.decorators import action
 
@@ -176,6 +178,24 @@ class AccessRequestsViewSet(NetBoxModelViewSet):
             "success": True
         })
         
+    @action(detail=True, methods=["post"], url_path="finish")
+    def finish(self, request, pk=None):
+        obj= self.get_object()
+        if obj.status != AccessRequestStatusChoices.STATUS_APPROVED:
+            return Response({
+                "success": False,
+                "message":"Invalid access request status. Must be approved"
+            })
+        obj.status= AccessRequestStatusChoices.STATUS_FINISHED
+        obj.save()
+        create_access_request_history(access_request= obj,
+                                    performed_by= request.user, 
+                                    action= AccessRequestHistoryActionChoices.ACTION_FINISH_REQUEST, 
+                                    status=AccessRequestHistoryStatusChoices.STATUS_SUCCESS, 
+                                    description=f"Request was closed by {request.user} at {date.today()}")
+        serializer= self.get_serializer(obj)
+        return Response(serializer.data)
+        
 
 class AccessRequestPersonViewSet(NetBoxModelViewSet):
     queryset= AccessRequestPerson.objects.all()
@@ -195,6 +215,61 @@ class AccessRequestPersonViewSet(NetBoxModelViewSet):
         obj.save()
         serializer= self.get_serializer(obj)
         return Response(serializer.data)
+    
+    @action(detail=True, methods=["post"], url_path="check-in")
+    def checkin(self, request, pk=None):
+        obj = self.get_object()
+        if obj.status != AccessRequestPersonStatusChoices.STATUS_VERIFY:
+            return Response(
+                {"success": False, "message": "Unverified member can't check-in"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        ar = obj.access_request
+        if ar.status != AccessRequestStatusChoices.STATUS_APPROVED:
+            return Response(
+            {"success": False, "message": "Invalid Status for access request. Must be approved"},
+            status=status.HTTP_400_BAD_REQUEST
+            )
+        obj.entry_status = AccessRequestPersonEntryStatusChoice.STATUS_IN
+        obj.save()
+        serializer= self.get_serializer(obj)
+        create_access_request_history(
+            access_request=ar,
+            performed_by=request.user,
+            action=AccessRequestHistoryActionChoices.ACTION_MEMBER_CHECK_IN,
+            status=AccessRequestHistoryStatusChoices.STATUS_SUCCESS,
+            description=f"{obj.full_name} checked in at {date.today()}"
+        )
+        return Response(serializer.data)
+
+
+    @action(detail=True, methods=["post"], url_path="check-out")
+    def checkout(self, request, pk=None):
+        obj = self.get_object()
+        if obj.status != AccessRequestPersonStatusChoices.STATUS_VERIFY:
+            return Response(
+                {"success": False, "message": "Unverified member can't check-out"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        ar = obj.access_request
+        if ar.status != AccessRequestStatusChoices.STATUS_APPROVED:
+            return Response(
+                {"success": False, "message": "Invalid Status for access request. Must be approved"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        obj.entry_status = AccessRequestPersonEntryStatusChoice.STATUS_OUT
+        obj.save()
+        serializer= self.get_serializer(obj)
+        create_access_request_history(
+            access_request=ar,
+            performed_by=request.user,
+            action=AccessRequestHistoryActionChoices.ACTION_MEMBER_CHECK_OUT,
+            status=AccessRequestHistoryStatusChoices.STATUS_SUCCESS,
+            description=f"{obj.full_name} checked out at {date.today()}"
+    )
+        return Response(serializer.data)
+        
+        
         
     
         

@@ -11,9 +11,19 @@ https://django-tables2.readthedocs.io/
 import django_tables2 as tables
 from django.utils.translation import gettext_lazy as _ 
 from netbox.tables import NetBoxTable, columns
+from django.utils.safestring import mark_safe
 
 from .models import AccessRequest, AccessRequestPerson
+from .choices import AccessRequestStatusChoices
 
+class AccessRequestActionColumn(columns.ActionsColumn):
+    def render(self, record, table, **kwargs):
+        request = getattr(table, 'context', {}).get('request')
+        if request and request.user.is_superuser:
+            return mark_safe("")
+        if not record.is_editable and not record.is_deletable:
+            return mark_safe("")
+        return super().render(record, table, **kwargs)
 
 class AccessRequestTable(NetBoxTable):
     name = tables.Column(
@@ -45,6 +55,8 @@ class AccessRequestTable(NetBoxTable):
     verbose_name=_("Last Updated"),
     format="Y-m-d H:i:s"
     )
+    
+    actions= AccessRequestActionColumn()
 
     class Meta(NetBoxTable.Meta):
         model = AccessRequest
@@ -75,10 +87,9 @@ class AccessRequestTable(NetBoxTable):
             'last_updated',
             'actions',
         )
-        
+    
 class AccessRequestPersonTable(NetBoxTable):
     
-
     full_name = tables.Column(
         verbose_name=_("Full Name"),
         linkify=True
@@ -94,11 +105,7 @@ class AccessRequestPersonTable(NetBoxTable):
     )
 
     class Meta(NetBoxTable.Meta):
-
         model = AccessRequestPerson
-        
-        
-
         fields = (
             "pk",
             "id",

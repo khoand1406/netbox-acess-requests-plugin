@@ -23,7 +23,7 @@ from netbox.views import generic
 from utilities.exceptions import AbortRequest, PermissionsViolation
 from utilities.forms.utils import restrict_form_fields
 from utilities.views import ViewTab, register_model_view
-from . import models, tables, forms, filtersets
+from . import models, tables, forms, filtersets, choices
 from .ui.panels import AccessRequestPanel, AccessRequestPersonPanel, CustomImageAttachmentPanel
 from .bulk_import_forms import AccessRequestPersonBulkImportCSVForm
 from django.contrib.contenttypes.prefetch import GenericPrefetch
@@ -90,19 +90,22 @@ class AccessRequestView(generic.ObjectView):
     actions= (EditObject, DeleteObject)
     def get_permitted_actions(self, user, model=None):
         instance = self.get_object(**self.kwargs)
-        filtered_actions = []
-        for action in self.actions:
-            if action == EditObject and not instance.is_editable:
-                continue
-            if action == DeleteObject and not instance.is_deletable:
-                continue
-            filtered_actions.append(action)
+    
+        if user.is_superuser:
+            filtered_actions = []
+        else:
+            filtered_actions = []
+            for action in self.actions:
+                if action == EditObject and not instance.is_editable:
+                    continue
+                if action == DeleteObject and not instance.is_deletable:
+                    continue
+                filtered_actions.append(action)
 
         original_actions = self.actions
         self.actions = tuple(filtered_actions)
         result = super().get_permitted_actions(user, model)
-        self.actions = original_actions  
-
+        self.actions = original_actions
         return result
 
     def get_extra_context(self, request, instance):
@@ -126,6 +129,7 @@ class AccessRequestPersonListView(generic.ObjectView):
         badge= get_member_list_count,
         weight=500
     )
+    actions= (EditObject, DeleteObject)
     def get_extra_context(self, request, instance):
         members = (
             models.AccessRequestPerson.objects
@@ -148,16 +152,37 @@ class AccessRequestPersonListView(generic.ObjectView):
     
         return {
             "is_superuser":(request.user.is_superuser),
+            "pending":instance.is_pending,
             "approved": instance.is_approved,
+            "finished":instance.is_finished,
             "confirmed":instance.is_confirmed,
             "members": members
         }
+    def get_permitted_actions(self, user, model=None):
+        instance= self.get_object(**self.kwargs)
+        filtered_actions = []
+        if user.is_superuser:
+            filtered_actions= []
+        else:
+            for action in self.actions:
+                if action == EditObject and not instance.is_editable:
+                    continue
+                if action == DeleteObject and not instance.is_deletable:
+                    continue
+                filtered_actions.append(action)
+
+        original_actions = self.actions
+        self.actions = tuple(filtered_actions)
+        result = super().get_permitted_actions(user, model)
+        self.actions = original_actions  
+        return result
+            
 
 @register_model_view(model=models.AccessRequest, name="request-history", path='request-history')
 class AccessRequestHistoryListView(generic.ObjectView):
     queryset= models.AccessRequest.objects.all()
     template_name= 'access_request_management/access_request_history.html'
-    
+    actions= (EditObject, DeleteObject)
     tab= ViewTab(
         label=_('Request History')
     )
@@ -166,6 +191,24 @@ class AccessRequestHistoryListView(generic.ObjectView):
         return {
             "request_history": request_history
         }
+    def get_permitted_actions(self, user, model=None):
+        instance= self.get_object(**self.kwargs)
+        filtered_actions= []
+        if user.is_superuser:
+            filtered_actions= []
+        else:
+            for action in self.actions:
+                if action == EditObject and not instance.is_editable:
+                    continue
+                if action == DeleteObject and not instance.is_deletable:
+                    continue
+                filtered_actions.append(action)
+        original_actions= self.actions
+        self.actions= tuple(filtered_actions)
+        result = super().get_permitted_actions(user, model)
+        self.actions = original_actions  
+        return result
+            
 
 class AccessRequestEditView(generic.ObjectEditView):
     queryset=models.AccessRequest.objects.all()
@@ -222,13 +265,23 @@ class AccessRequestPersonView(generic.ObjectView):
         is_approved = access_request.is_approved
 
         result = []
-        for action in permitted:
-            if action == EditObject and is_approved:
-                continue
-            if action == DeleteObject and is_approved:
-                continue 
-            result.append(action)
-
+        if user.is_superuser:
+            result= []
+        else:     
+            if is_approved:
+                for action in permitted:
+                    if action == EditObject and instance.status==choices.AccessRequestPersonStatusChoices.STATUS_VERIFY:
+                        continue
+                    if action == DeleteObject and instance.status==choices.AccessRequestPersonStatusChoices.STATUS_VERIFY:
+                        continue 
+                    result.append(action)
+            else:
+                for action in permitted:
+                    if action==EditObject and instance.status==choices.AccessRequestPersonStatusChoices.STATUS_VERIFY:
+                        continue
+                    if action == DeleteObject and instance.status==choices.AccessRequestPersonStatusChoices.STATUS_VERIFY:
+                        continue
+                    result.append(action)
         return result
 
 class AccessRequestPersonEditView(generic.ObjectEditView):

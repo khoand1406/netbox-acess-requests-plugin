@@ -103,7 +103,9 @@ class AccessRequest(NetBoxModel):
     def is_editable(self):
         return self.status not in (
             AccessRequestStatusChoices.STATUS_APPROVED,
-            AccessRequestStatusChoices.STATUS_FINISHED
+            AccessRequestStatusChoices.STATUS_FINISHED,
+            AccessRequestStatusChoices.STATUS_PENDING,
+            AccessRequestStatusChoices.STATUS_CONFIRMED
         )
 
     @property
@@ -116,6 +118,10 @@ class AccessRequest(NetBoxModel):
         self.status in (AccessRequestStatusChoices.STATUS_DRAFT, AccessRequestStatusChoices.STATUS_REJECTED)
         and self.persons.exists()
     )
+    
+    @property
+    def is_pending(self):
+        return (self.status == AccessRequestStatusChoices.STATUS_PENDING)
         
     @property
     def is_confirmed(self):

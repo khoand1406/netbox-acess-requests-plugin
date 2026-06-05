@@ -269,11 +269,11 @@ class AccessRequestPerson(NetBoxModel):
     
     @property
     def is_editable(self):
-        return self.status != AccessRequestPersonStatusChoices.STATUS_VERIFY
+        return self.status != AccessRequestPersonStatusChoices.STATUS_VERIFY and self.access_request.is_editable
     
     @property
     def is_deletable(self):
-        return self.status !=AccessRequestPersonStatusChoices.STATUS_VERIFY
+        return self.status !=AccessRequestPersonStatusChoices.STATUS_VERIFY and self.access_request.is_deletable
 
     def clean(self):
 

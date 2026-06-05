@@ -6,6 +6,7 @@ from pathlib import Path
 import shutil
 from urllib.parse import unquote
 
+from django.urls import reverse
 from django.utils.translation import gettext_lazy as _
 from django.db import transaction, router
 from django.contrib import messages
@@ -217,10 +218,32 @@ class AccessRequestEditView(generic.ObjectEditView):
         if not obj.pk:
             obj.created_by = request.user
         return obj
+    def get_object(self, **kwargs):
+        obj= super().get_object(**kwargs)
+        if obj.pk and not obj.is_editable:
+            messages.error(self.request, _("This access request cannot be edited."))
+            raise PermissionsViolation(_("This access request cannot be edited."))
+        return obj
+    def dispatch(self, request, *args, **kwargs):
+        if request.user.is_superuser:
+            messages.error(request, _("Superusers are not allowed to edit access requests."))
+            raise PermissionsViolation(_("Superusers are not allowed to edit access requests."))
+        return super().dispatch(request, *args, **kwargs)
     
 
 class AccessRequestDeleteView(generic.ObjectDeleteView):
     queryset= models.AccessRequest.objects.all()
+    def get_object(self, **kwargs):
+        obj= super().get_object(**kwargs)
+        if obj.pk and not obj.is_deletable:
+            messages.error(self.request, _("This access request cannot be deleted."))
+            raise PermissionsViolation(_("This access request cannot be deleted."))
+        return obj
+    def dispatch(self, request, *args, **kwargs):
+        if request.user.is_superuser:
+            messages.error(request, _("Superusers are not allowed to delete access requests."))
+            raise PermissionsViolation(_("Superusers are not allowed to delete access requests."))
+        return super().dispatch(request, *args, **kwargs)
     
 class AccessRequestPersionListView(generic.ObjectListView):
     queryset= models.AccessRequestPerson.objects.all()
@@ -277,9 +300,9 @@ class AccessRequestPersonView(generic.ObjectView):
                     result.append(action)
             else:
                 for action in permitted:
-                    if action==EditObject and instance.status==choices.AccessRequestPersonStatusChoices.STATUS_VERIFY:
+                    if action == EditObject and not instance.is_editable:
                         continue
-                    if action == DeleteObject and instance.status==choices.AccessRequestPersonStatusChoices.STATUS_VERIFY:
+                    if action == DeleteObject and not instance.is_deletable:
                         continue
                     result.append(action)
         return result
@@ -289,6 +312,17 @@ class AccessRequestPersonEditView(generic.ObjectEditView):
     form= forms.AccessRequestPersonForm
     def alter_object(self, obj, request, url_args, url_kwargs):
         return super().alter_object(obj, request, url_args, url_kwargs)
+    def get_object(self, **kwargs):
+        obj= super().get_object(**kwargs)
+        if obj.pk and not obj.is_editable:
+            messages.error(self.request, _("This person cannot be edited."))
+            raise PermissionsViolation(_("This person cannot be edited."))
+        return obj
+    def dispatch(self, request, *args, **kwargs):
+        if request.user.is_superuser:
+            messages.error(self.request, _("This person cannot be edited"))
+            raise PermissionsViolation(_("This person cannot be edited."))
+        return super().dispatch(request, *args, **kwargs)
     
     def post(self, request, *args, **kwargs):
         logger = logging.getLogger('netbox.views.ObjectEditView')
@@ -396,6 +430,34 @@ class AccessRequestPersonEditView(generic.ObjectEditView):
 
 class AccessRequestPersonDeleteView(generic.ObjectDeleteView):
     queryset= models.AccessRequestPerson.objects.all()
+    def get_object(self, **kwargs):
+        obj= super().get_object(**kwargs)
+        if obj.pk and not obj.is_deletable:
+            messages.error(self.request, _("This person cannot be deleted"))
+            raise PermissionsViolation(_("This person cannot be deleted"))
+        return obj
+    def dispatch(self, request, *args, **kwargs):
+        if request.user.is_superuser:
+            messages.error(self.request, _("This person cannot be edited"))
+            raise PermissionsViolation(_("This person cannot be edited."))
+        return super().dispatch(request, *args, **kwargs)
+    def get_return_url(self, request, obj=None):
+        access_request_id = getattr(self, "access_request_id", None)
+
+        if access_request_id:
+            return reverse(
+                "plugins:access_request_management:accessrequest_access-members",
+                kwargs={"pk": access_request_id}
+            )
+
+        if obj and obj.access_request_id:
+            return reverse(
+                "plugins:access_request_management:accessrequest_access-members",
+                kwargs={"pk": obj.access_request_id}
+            )
+
+        return super().get_return_url(request, obj)
+        
     
 class AccessRequestPersionImportView(generic.BulkImportView):
     queryset= models.AccessRequestPerson.objects.all()

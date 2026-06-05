@@ -28,7 +28,7 @@ from .ui.panels import AccessRequestPanel, AccessRequestPersonPanel, CustomImage
 from .bulk_import_forms import AccessRequestPersonBulkImportCSVForm
 from django.contrib.contenttypes.prefetch import GenericPrefetch
 from upload_file_plugin.models import UploadedFile
-from upload_file_plugin.views import SaveFilesView
+from upload_file_minio.views import SaveFilesView
 
 def get_member_list_count(instance):
     try:
@@ -334,53 +334,9 @@ class AccessRequestPersonEditView(generic.ObjectEditView):
                                 f"Failed to save attachments: {result_data.get('errors')}"
                             )
                 
-                            saved_files = result_data.get("saved_files", [])
-                
-                            for file_info in saved_files:
-                                old_relative = unquote(file_info["path"].lstrip("/"))
-                                media_root_name = Path(settings.MEDIA_ROOT).name
-
-                                if old_relative.startswith(f"{media_root_name}/"):
-                                    old_relative = old_relative[len(media_root_name) + 1:]
-                                old_full = os.path.join(settings.MEDIA_ROOT, old_relative)
-
-                                file_name = os.path.basename(old_relative)
-                                new_relative = os.path.join("uploads", obj._meta.model_name, file_name)
-                                new_full = os.path.join(settings.MEDIA_ROOT, new_relative)
-                    
-                                os.makedirs(os.path.dirname(new_full), exist_ok=True)
-                    
-                                if os.path.exists(old_full):
-                                    shutil.move(old_full, new_full)
-                                    logger.info(f"Moved file: {old_full} -> {new_full}")
-                                    UploadedFile.objects.filter(
-                                    object_id=obj.pk,
-                                    model_name=obj._meta.model_name,
-                                    file=file_name
-                                ).update(file=new_relative)
-                                    logger.info(f"Updated DB path: {file_name} -> {new_relative}")
-                                else:
-                                    logger.warning(f"File not found after save: {old_full}")
-                
-                        
-                            all_files_list = json.loads(all_files)
-                            allowed_dir = os.path.join(settings.MEDIA_ROOT, 'uploads', 'tmp')
-                
-                            for file_dict in all_files_list:
-                                temp_path = file_dict.get("path", "")
-                                abs_temp_path = os.path.abspath(temp_path)
-                    
-                                if not abs_temp_path.startswith(os.path.abspath(allowed_dir)):
-                                    logger.warning(f"Invalid temp path, skipping: {temp_path}")
-                                    continue
-                    
-                                if os.path.exists(abs_temp_path):
-                                    try:
-                                        os.remove(abs_temp_path)
-                                        logger.info(f"Deleted temp file: {abs_temp_path}")
-                                    except Exception as e:
-                                        logger.error(f"Error deleting temp file {abs_temp_path}: {e}")
-                            
+                        except Exception as e:
+                            logger.error(f"Error saving attachments: {str(e)}")
+                            raise AbortRequest(f"An error occurred while saving attachments: {str(e)}")
                         finally:
                             if original_data is not None:
                                 request.data = original_data

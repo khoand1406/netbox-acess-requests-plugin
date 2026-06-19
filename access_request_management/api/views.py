@@ -181,6 +181,24 @@ class AccessRequestsViewSet(NetBoxModelViewSet):
     @action(detail=True, methods=["post"], url_path="finish")
     def finish(self, request, pk=None):
         obj= self.get_object()
+        # members= obj.persons.all()
+       
+        # checked_out_members= members.filter(entry_status= AccessRequestPersonEntryStatusChoice.STATUS_OUT)
+        # checked_in_members= members.filter(entry_status= AccessRequestPersonEntryStatusChoice.STATUS_IN)
+        # if checked_out_members.count() < members.count():
+        #     return Response({
+        #         "success": False,
+        #         "message":"All members must check out before finishing the request",
+        #         "checked_in_members":[
+        #             {
+        #                 "identity_code": m.identity_code,
+        #                 "full_name": m.full_name
+        #             }
+        #             for m in checked_in_members
+        #         ]
+        #     },
+        #     status=status.HTTP_400_BAD_REQUEST
+        # )
         if obj.status != AccessRequestStatusChoices.STATUS_APPROVED:
             return Response({
                 "success": False,

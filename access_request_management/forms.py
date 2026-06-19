@@ -240,7 +240,7 @@ class AccessRequestPersonForm(NetBoxModelForm):
                 site_id = self.instance.access_request.site_id
             except AccessRequest.DoesNotExist:
                 pass
-
+        print(f"site_id: {site_id}")
         if not site_id:
             access_request_id = self.initial.get("access_request") or self.data.get("access_request")
             if access_request_id:

@@ -39,21 +39,21 @@ class AccessRequestPanel(panels.ObjectAttributesPanel):
         label=_("Site")
     )
 
-    created_by_attr = attrs.RelatedObjectAttr(
-        "created_by",
-        linkify=True,
-        label=_("Created By")
-    )
+    # created_by_attr = attrs.RelatedObjectAttr(
+    #     "created_by",
+    #     linkify=True,
+    #     label=_("Created By")
+    # )
 
-    created_attr = attrs.DateTimeAttr(
-        "created",
-        label=_("Created")
-    )
+    # created_attr = attrs.DateTimeAttr(
+    #     "created",
+    #     label=_("Created")
+    # )
 
-    last_updated_attr = attrs.DateTimeAttr(
-        "last_updated",
-        label=_("Last Updated")
-    )
+    # last_updated_attr = attrs.DateTimeAttr(
+    #     "last_updated",
+    #     label=_("Last Updated")
+    # )
     
 class AccessRequestPersonPanel(panels.ObjectAttributesPanel):
     name = _("Detail Information")

@@ -1,22 +1,17 @@
 from collections import defaultdict
 import json
 import logging
-import os
-from pathlib import Path
-import shutil
-from urllib.parse import unquote
 
 from django.urls import reverse
 from django.utils.translation import gettext_lazy as _
 from django.db import transaction, router
 from django.contrib import messages
-from django.http import JsonResponse, QueryDict
+from django.http import QueryDict
 from django.utils.safestring import mark_safe
 from django.utils.html import escape
-from django.shortcuts import redirect, render
+from django.shortcuts import redirect, render, get_object_or_404
 from django.core.exceptions import ValidationError
 from extras.ui.panels import TagsPanel
-from netbox import settings
 from netbox.object_actions import AddObject, BulkDelete, BulkEdit, BulkImport, DeleteObject, EditObject
 from netbox.ui.layout import SimpleLayout
 from netbox.ui.panels import RelatedObjectsPanel
@@ -27,7 +22,6 @@ from utilities.views import ViewTab, register_model_view
 from . import models, tables, forms, filtersets, choices
 from .ui.panels import AccessRequestPanel, AccessRequestPersonPanel, CustomImageAttachmentPanel
 from .bulk_import_forms import AccessRequestPersonBulkImportCSVForm
-from django.contrib.contenttypes.prefetch import GenericPrefetch
 from upload_file_plugin.models import UploadedFile
 from upload_file_minio.views import SaveFilesView
 
@@ -464,6 +458,12 @@ class AccessRequestPersionImportView(generic.BulkImportView):
     model_form= AccessRequestPersonBulkImportCSVForm
     def save_object(self, object_form, request):
         obj = object_form.save(commit=False)
+        access_request_id = request.GET.get("access_request")
+
+        obj.access_request = get_object_or_404(
+            models.AccessRequest,
+            pk=access_request_id
+        )
         if obj.pk is None and hasattr(obj, 'created_by'):
             obj.created_by = request.user
         obj.save()

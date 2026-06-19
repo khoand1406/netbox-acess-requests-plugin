@@ -12,6 +12,7 @@ from datetime import date
 
 from rest_framework.response import Response
 from rest_framework import status
+from django.utils.translation import gettext_lazy as _
 
 from netbox.api.viewsets import NetBoxModelViewSet
 from ..utils import create_access_request_history
@@ -35,14 +36,14 @@ class AccessRequestsViewSet(NetBoxModelViewSet):
         if obj.status not in (AccessRequestStatusChoices.STATUS_DRAFT, AccessRequestStatusChoices.STATUS_REJECTED):
             
             return Response(
-                {"detail": "Only draft/rejected requests can be submitted."},
+                {"detail": _("Only draft/rejected requests can be submitted.")},
                 status=status.HTTP_400_BAD_REQUEST,
             )
         
 
         if not obj.persons.exists():
             return Response(
-                {"detail": "At least one member is required before submitting."},
+                {"detail": _("At least one member is required before submitting.")},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -70,7 +71,7 @@ class AccessRequestsViewSet(NetBoxModelViewSet):
             performed_by=request.user,
             action=AccessRequestHistoryActionChoices.ACTION_CONFIRM_REQUEST,
             status=AccessRequestHistoryStatusChoices.STATUS_SUCCESS,
-            description=f"Request confirmed by {request.user}",
+            description=_("Request confirmed by {request.user}"),
         )
         serializer= self.get_serializer(obj)
         return Response(serializer.data)
@@ -81,7 +82,7 @@ class AccessRequestsViewSet(NetBoxModelViewSet):
         if(obj.status != AccessRequestStatusChoices.STATUS_CONFIRMED):
             return Response({
                 "success":False,
-                "message":"Must confirm the request access first"
+                "message": _("Must confirm the request access first")
             },
             status= status.HTTP_400_BAD_REQUEST)
         members= obj.persons.all()
@@ -100,7 +101,7 @@ class AccessRequestsViewSet(NetBoxModelViewSet):
             return Response(
             {
                 "success": False,
-                "message": "Fail! There are invalid members",
+                "message": _("Fail! There are invalid members"),
                 "invalid_members": [
                     {
                         "identity_code": m.identity_code,
@@ -136,7 +137,7 @@ class AccessRequestsViewSet(NetBoxModelViewSet):
                 performed_by= request.user, 
                 action= AccessRequestHistoryActionChoices.ACTION_REJECT_REQUEST, 
                 status=AccessRequestHistoryStatusChoices.STATUS_FAILED, 
-                description="Invalid Members Status"
+                description=_("Invalid Members Status")
             )
             return Response({
                 "success":False,
@@ -147,20 +148,20 @@ class AccessRequestsViewSet(NetBoxModelViewSet):
                     }
                     for m in invalid_members
                 ],
-                "message":"Must verify or unverify member before processing"
+                "message": _("Must verify or unverify member before processing")
             },
             status=status.HTTP_400_BAD_REQUEST
         )
         if(obj.status != AccessRequestStatusChoices.STATUS_CONFIRMED):
             return Response({
                 "success":False,
-                "message":"Must confirm the request access first"
+                "message": _("Must confirm the request access first")
             },
             status= status.HTTP_400_BAD_REQUEST)
         if obj.status == AccessRequestStatusChoices.STATUS_APPROVED:
             return Response({
                 "success":False,
-                "message":"Can't reject approved access requests",
+                "message": _("Can't reject approved access requests"),
             },
             status=status.HTTP_400_BAD_REQUEST,
         )
@@ -202,7 +203,7 @@ class AccessRequestsViewSet(NetBoxModelViewSet):
         if obj.status != AccessRequestStatusChoices.STATUS_APPROVED:
             return Response({
                 "success": False,
-                "message":"Invalid access request status. Must be approved"
+                "message": _("Invalid access request status. Must be approved")
             })
         obj.status= AccessRequestStatusChoices.STATUS_FINISHED
         obj.save()
@@ -239,13 +240,13 @@ class AccessRequestPersonViewSet(NetBoxModelViewSet):
         obj = self.get_object()
         if obj.status != AccessRequestPersonStatusChoices.STATUS_VERIFY:
             return Response(
-                {"success": False, "message": "Unverified member can't check-in"},
+                {"success": False, "message": _("Unverified member can't check-in")},
                 status=status.HTTP_400_BAD_REQUEST
             )
         ar = obj.access_request
         if ar.status != AccessRequestStatusChoices.STATUS_APPROVED:
             return Response(
-            {"success": False, "message": "Invalid Status for access request. Must be approved"},
+            {"success": False, "message": _("Invalid Status for access request. Must be approved")},
             status=status.HTTP_400_BAD_REQUEST
             )
         obj.entry_status = AccessRequestPersonEntryStatusChoice.STATUS_IN
@@ -266,13 +267,13 @@ class AccessRequestPersonViewSet(NetBoxModelViewSet):
         obj = self.get_object()
         if obj.status != AccessRequestPersonStatusChoices.STATUS_VERIFY:
             return Response(
-                {"success": False, "message": "Unverified member can't check-out"},
+                {"success": False, "message": _("Unverified member can't check-out")},
                 status=status.HTTP_400_BAD_REQUEST
             )
         ar = obj.access_request
         if ar.status != AccessRequestStatusChoices.STATUS_APPROVED:
             return Response(
-                {"success": False, "message": "Invalid Status for access request. Must be approved"},
+                {"success": False, "message": _("Invalid Status for access request. Must be approved")},
                 status=status.HTTP_400_BAD_REQUEST
             )
         obj.entry_status = AccessRequestPersonEntryStatusChoice.STATUS_OUT

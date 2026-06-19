@@ -218,13 +218,13 @@ class AccessRequestPersonForm(NetBoxModelForm):
         fields = [
             "access_request",
             "identity_code",
+            "site",
             "full_name",
             "organization",
             "job_title",
             "phone_number",
             "location",
             "description",
-            "site"
         ]
         widgets = {
             "description": forms.Textarea(attrs={"rows": 4}),
@@ -238,6 +238,8 @@ class AccessRequestPersonForm(NetBoxModelForm):
         if self.instance.pk and self.instance.access_request_id:
             try:
                 site_id = self.instance.access_request.site_id
+                self.initial["site"] = site_id
+                self.initial["access_request"] = self.instance.access_request_id
             except AccessRequest.DoesNotExist:
                 pass
         print(f"site_id: {site_id}")

@@ -3,6 +3,7 @@ from dcim.models.sites import Location
 from netbox.forms.bulk_import import PrimaryModelImportForm
 from utilities.forms.fields.csv import CSVModelChoiceField
 from .models import AccessRequestPerson
+from django import forms
 
 class AccessRequestPersonBulkImportCSVForm(PrimaryModelImportForm):
     location = CSVModelChoiceField(

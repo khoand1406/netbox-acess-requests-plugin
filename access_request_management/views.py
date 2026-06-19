@@ -466,6 +466,7 @@ class AccessRequestPersionImportView(generic.BulkImportView):
         )
         if obj.pk is None and hasattr(obj, 'created_by'):
             obj.created_by = request.user
+        obj.full_clean()
         obj.save()
         object_form.save_m2m()
         return obj

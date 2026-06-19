@@ -286,7 +286,6 @@ class AccessRequestPerson(NetBoxModel):
             return
 
         access_request_site_id = self.access_request.site_id
-
         if (
         access_request_site_id
         and self.location.site_id != access_request_site_id

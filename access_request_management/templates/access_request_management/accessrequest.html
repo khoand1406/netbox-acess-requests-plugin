@@ -174,7 +174,7 @@
                             ).join('');
                             showModal('invalidPersonModal')
                         } else {
-                            showToast('{% trans "Error occurs"}', 'error');
+                            showToast(data.message || '{% trans "Error occurs" %}', 'error');
                         }
                     });
                 }
@@ -203,36 +203,48 @@
                 if (data.success) {
                     window.location.reload();
                 } else {
-                    showToast('{% trans "Error occurs"}', 'error');
+                    showToast(data.message || '{% trans "Error occurs" %}', 'error');
                 }
             })
-            .catch(err => showToast('{% trans "Error occurs"}', 'error'));
+            .catch(err => showToast('{% trans "Error occurs" %}', 'error'));
     }
     function handleReject() {
         document.getElementById('rejectReason').value = '';
         showModal('rejectConfirmModal')
     }
 
-    function confirmReject() {
+    async function confirmReject() {
         const reason = document.getElementById('rejectReason').value;
         const url = `/api/plugins/access_request_management/access-requests/{{ object.pk }}/reject/`;
-        fetch(url, {
-            method: 'POST',
-            headers: {
-                'X-CSRFToken': '{{ csrf_token }}',
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ 'reason': reason })
-        }).then(res => res.json())
-            .then(data => {
-                if (data.success) {
-                    window.location.reload();
-                } else {
-                    showToast('{% trans "Error occurs"}', 'error')
-                }
-            })
-            .catch(err => showToast('{% trans "Error occurs"}', 'error'));
 
+        try {
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': '{{ csrf_token }}',
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    reason: reason
+                })
+            });
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                showToast(data.message || '{% trans "Error occurs" %}', 'error');
+                return;
+            }
+
+            if (data.success) {
+                window.location.reload();
+            } else {
+                showToast(data.message || '{% trans "Error occurs" %}', 'error');
+            }
+        }
+        catch (error) {
+            showToast('{% trans "Error occurs" %}', 'error');
+        }
     }
 </script>
 {% elif is_finished %}

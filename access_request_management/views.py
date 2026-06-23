@@ -22,6 +22,7 @@ from utilities.views import ViewTab, register_model_view
 from . import models, tables, forms, filtersets, choices
 from .ui.panels import AccessRequestPanel, AccessRequestPersonPanel, CustomImageAttachmentPanel
 from .bulk_import_forms import AccessRequestPersonBulkImportCSVForm
+from .mixins import AccessRequestPersonDeletePermissionMixin, AccessRequestPersonEditPermissionMixin, AccessRequestViewPermissionMixin, BlockSuperuserMixin, AccessRequestEditPermissionMixin, AccessRequestDeletePermissionMixin, CreatorRequiredMixin
 from upload_file_plugin.models import UploadedFile
 from upload_file_minio.views import SaveFilesView
 
@@ -71,7 +72,7 @@ class AccessRequestListView(generic.ObjectListView):
 
         return actions
     
-class AccessRequestView(generic.ObjectView):
+class AccessRequestView(AccessRequestViewPermissionMixin, generic.ObjectView):
     queryset= models.AccessRequest.objects.all()
     layout= SimpleLayout(
         left_panels=[
@@ -102,7 +103,7 @@ class AccessRequestView(generic.ObjectView):
         result = super().get_permitted_actions(user, model)
         self.actions = original_actions
         return result
-
+    
     def get_extra_context(self, request, instance):
         return {
                 "is_admin":(request.user.is_superuser),
@@ -205,39 +206,18 @@ class AccessRequestHistoryListView(generic.ObjectView):
         return result
             
 
-class AccessRequestEditView(generic.ObjectEditView):
+class AccessRequestEditView(BlockSuperuserMixin, CreatorRequiredMixin, AccessRequestEditPermissionMixin, generic.ObjectEditView):
     queryset=models.AccessRequest.objects.all()
     form= forms.AccessRequestForm
+    creator_required_message = _("You are not allowed to modify this access request.")
     def alter_object(self, obj, request, url_args, url_kwargs):
         if not obj.pk:
             obj.created_by = request.user
         return obj
-    def get_object(self, **kwargs):
-        obj= super().get_object(**kwargs)
-        if obj.pk and not obj.is_editable:
-            messages.error(self.request, _("This access request cannot be edited."))
-            raise PermissionsViolation(_("This access request cannot be edited."))
-        return obj
-    def dispatch(self, request, *args, **kwargs):
-        if request.user.is_superuser:
-            messages.error(request, _("Superusers are not allowed to edit access requests."))
-            raise PermissionsViolation(_("Superusers are not allowed to edit access requests."))
-        return super().dispatch(request, *args, **kwargs)
     
-
-class AccessRequestDeleteView(generic.ObjectDeleteView):
+class AccessRequestDeleteView(BlockSuperuserMixin, CreatorRequiredMixin, AccessRequestDeletePermissionMixin, generic.ObjectDeleteView):
     queryset= models.AccessRequest.objects.all()
-    def get_object(self, **kwargs):
-        obj= super().get_object(**kwargs)
-        if obj.pk and not obj.is_deletable:
-            messages.error(self.request, _("This access request cannot be deleted."))
-            raise PermissionsViolation(_("This access request cannot be deleted."))
-        return obj
-    def dispatch(self, request, *args, **kwargs):
-        if request.user.is_superuser:
-            messages.error(request, _("Superusers are not allowed to delete access requests."))
-            raise PermissionsViolation(_("Superusers are not allowed to delete access requests."))
-        return super().dispatch(request, *args, **kwargs)
+    creator_required_message = _("You are not allowed to delete this access request.")
     
 class AccessRequestPersionListView(generic.ObjectListView):
     queryset= models.AccessRequestPerson.objects.all()
@@ -300,23 +280,19 @@ class AccessRequestPersonView(generic.ObjectView):
                         continue
                     result.append(action)
         return result
+    def get_extra_context(self, request, instance):
+        return {
+            "is_superuser":(request.user.is_superuser),
+            "access_request": instance.access_request,
+            "is_approved": instance.access_request.is_approved,
+            "is_editable": instance.is_editable,
+        }
 
-class AccessRequestPersonEditView(generic.ObjectEditView):
+class AccessRequestPersonEditView(BlockSuperuserMixin, AccessRequestPersonEditPermissionMixin, generic.ObjectEditView):
     queryset= models.AccessRequestPerson.objects.all()
     form= forms.AccessRequestPersonForm
     def alter_object(self, obj, request, url_args, url_kwargs):
         return super().alter_object(obj, request, url_args, url_kwargs)
-    def get_object(self, **kwargs):
-        obj= super().get_object(**kwargs)
-        if obj.pk and not obj.is_editable:
-            messages.error(self.request, _("This person cannot be edited."))
-            raise PermissionsViolation(_("This person cannot be edited."))
-        return obj
-    def dispatch(self, request, *args, **kwargs):
-        if request.user.is_superuser:
-            messages.error(self.request, _("This person cannot be edited"))
-            raise PermissionsViolation(_("This person cannot be edited."))
-        return super().dispatch(request, *args, **kwargs)
     
     def post(self, request, *args, **kwargs):
         logger = logging.getLogger('netbox.views.ObjectEditView')
@@ -422,19 +398,8 @@ class AccessRequestPersonEditView(generic.ObjectEditView):
 
         return render(request, self.template_name, context)
 
-class AccessRequestPersonDeleteView(generic.ObjectDeleteView):
+class AccessRequestPersonDeleteView(BlockSuperuserMixin, AccessRequestPersonDeletePermissionMixin, generic.ObjectDeleteView):
     queryset= models.AccessRequestPerson.objects.all()
-    def get_object(self, **kwargs):
-        obj= super().get_object(**kwargs)
-        if obj.pk and not obj.is_deletable:
-            messages.error(self.request, _("This person cannot be deleted"))
-            raise PermissionsViolation(_("This person cannot be deleted"))
-        return obj
-    def dispatch(self, request, *args, **kwargs):
-        if request.user.is_superuser:
-            messages.error(self.request, _("This person cannot be edited"))
-            raise PermissionsViolation(_("This person cannot be edited."))
-        return super().dispatch(request, *args, **kwargs)
     def get_return_url(self, request, obj=None):
         access_request_id = getattr(self, "access_request_id", None)
 
@@ -453,7 +418,7 @@ class AccessRequestPersonDeleteView(generic.ObjectDeleteView):
         return super().get_return_url(request, obj)
         
     
-class AccessRequestPersionImportView(generic.BulkImportView):
+class AccessRequestPersionImportView(BlockSuperuserMixin, generic.BulkImportView):
     queryset= models.AccessRequestPerson.objects.all()
     model_form= AccessRequestPersonBulkImportCSVForm
     def save_object(self, object_form, request):

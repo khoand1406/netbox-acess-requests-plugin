@@ -5,6 +5,7 @@
     </div>
 
     <div class="card-body p-0" id="attachments-panel">
+        <div id="attachment-message" class="d-none m-3"></div>
         {% if uploaded_files %}
         <table class="table table-hover mb-0">
             <thead>
@@ -20,20 +21,17 @@
                 {% for file in uploaded_files %}
                 <tr>
                     <td style="width: 80px;">
-    {% with file.file_name|lower as fname %}
-        {% if fname|slice:"-4:" == ".jpg" or fname|slice:"-5:" == ".jpeg" or fname|slice:"-4:" == ".png" %}
-            <a href="{{ file.file.url }}" target="_blank">
-                <img src="{{ file.file.url }}"
-                     style="width:60px; height:60px; object-fit:cover;"
-                     class="rounded border"
-                     alt="{{ file.file_name }}">
-            </a>
-        {% else %}
-            <i class="mdi mdi-file-outline"
-               style="font-size: 2rem; color: var(--bs-secondary);"></i>
-        {% endif %}
-    {% endwith %}
-</td>
+                        {% with file.file_name|lower as fname %}
+                        {% if fname|slice:"-4:" == ".jpg" or fname|slice:"-5:" == ".jpeg" or fname|slice:"-4:" == ".png" %}
+                        <a href="{{ file.file.url }}" target="_blank">
+                            <img src="{{ file.file.url }}" style="width:60px; height:60px; object-fit:cover;"
+                                class="rounded border" alt="{{ file.file_name }}">
+                        </a>
+                        {% else %}
+                        <i class="mdi mdi-file-outline" style="font-size: 2rem; color: var(--bs-secondary);"></i>
+                        {% endif %}
+                        {% endwith %}
+                    </td>
                     <td class="align-middle">
                         <a href="{{ file.file.url }}" target="_blank">{{ file.file_name }}</a>
                     </td>
@@ -49,6 +47,10 @@
                                 title="{% trans 'Download' %}">
                                 <i class="mdi mdi-download"></i>
                             </a>
+                            {% if is_superuser %}
+                            {% endif %}
+
+                            {% if can_delete_attachment %}
                             <button type="button" class="btn btn-warning btn-sm dropdown-toggle dropdown-toggle-split"
                                 data-bs-toggle="dropdown" aria-expanded="false">
                                 <span class="visually-hidden">Toggle Dropdown</span>
@@ -56,13 +58,17 @@
                             <ul class="dropdown-menu dropdown-menu-end">
                                 <li>
                                     <button type="button" class="dropdown-item text-danger btn-delete-attach"
-                                        data-file-id="{{ file.id }}">
+                                        data-file-id="{{ file.id }}"
+                                        data-file-name="{{ file.file_name }}"
+                                        data-bs-toggle="modal"
+                                        data-bs-target="#deleteAttachmentModal">
                                         <i class="mdi mdi-trash-can-outline me-2"></i>
                                         {% trans "Delete" %}
                                     </button>
 
                                 </li>
                             </ul>
+                            {% endif %}
                         </div>
                     </td>
                 </tr>
@@ -74,45 +80,144 @@
         {% endif %}
     </div>
 </div>
+<div class="modal fade" id="deleteAttachmentModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">{% trans "Delete attachment" %}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{% trans 'Close' %}"></button>
+            </div>
+
+            <div class="modal-body">
+                <p class="mb-0">
+                    {% trans "Are you sure you want to delete this attachment?" %}
+                </p>
+                <p class="text-muted small mb-0 mt-2" id="delete-attachment-name"></p>
+            </div>
+
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" id="cancel-delete-attachment">
+                    {% trans "Cancel" %}
+                </button>
+                <button type="button" class="btn btn-danger" id="confirm-delete-attachment">
+                    <i class="mdi mdi-trash-can-outline"></i>
+                    {% trans "Delete" %}
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
 <script>
-    async function handleDelete(fileId, buttonEl) {
+    let selectedDeleteButton = null;
+    let selectedFileId = null;
 
-        const response = await fetch("{% url 'plugins:upload_file_plugin:delete_file' %}", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-                "X-CSRFToken": getCookie("csrftoken"),
-            },
-            body: JSON.stringify({
-                id: fileId
-            })
-        });
+    function showAttachmentMessage(message, type = "danger") {
+        const messageEl = document.getElementById("attachment-messages");
 
-        const data = await response.json();
-
-        if (data.success) {
-
-            const row = buttonEl.closest("tr");
-
-            if (row) {
-                row.remove();
-            }
-
-        } else {
-            alert(data.error || "Delete failed");
+        if (!messageEl) {
+            return;
         }
+
+        messageEl.className = `alert alert-${type} m-3`;
+        messageEl.textContent = message;
+        messageEl.classList.remove("d-none");
+
+        setTimeout(() => {
+            messageEl.classList.add("d-none");
+            messageEl.textContent = "";
+        }, 4000);
     }
 
-    function confirmDelete() {
-        return confirm("Are you sure you want to delete this attachment?");
+    async function handleDelete(fileId, buttonEl) {
+        const confirmBtn = document.getElementById("confirm-delete-attachment");
+
+        if (confirmBtn) {
+            confirmBtn.disabled = true;
+            confirmBtn.innerHTML = `
+                <span class="spinner-border spinner-border-sm me-1"></span>
+                {% trans "Deleting..." %}
+            `;
+        }
+
+        try {
+            const response = await fetch("{% url 'plugins:upload_file_plugin:delete_file' %}", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "X-CSRFToken": getCookie("csrftoken"),
+                },
+                body: JSON.stringify({
+                    id: fileId
+                })
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                const row = buttonEl.closest("tr");
+
+                if (row) {
+                    row.remove();
+                }
+
+                showAttachmentMessage("{% trans 'Attachment deleted successfully.' %}", "success");
+
+                const tbody = document.querySelector("#attachments-panel tbody");
+
+                if (tbody && tbody.children.length === 0) {
+                    const table = document.querySelector("#attachments-panel table");
+
+                    if (table) {
+                        table.remove();
+                    }
+
+                    const panel = document.getElementById("attachments-panel");
+
+                    panel.insertAdjacentHTML(
+                        "beforeend",
+                        `<p class="text-muted mb-0 p-3">{% trans "No attachments found." %}</p>`
+                    );
+                }
+
+            } else {
+                showAttachmentMessage(data.error || "{% trans 'Delete failed.' %}", "danger");
+            }
+
+        } catch (error) {
+            showAttachmentMessage(
+                "{% trans 'An unexpected error occurred while deleting the attachment.' %}",
+                "danger"
+            );
+
+        } finally {
+            if (confirmBtn) {
+                confirmBtn.disabled = false;
+                confirmBtn.innerHTML = `
+                    <i class="mdi mdi-trash-can-outline"></i>
+                    {% trans "Delete" %}
+                `;
+            }
+
+            const cancelBtn = document.getElementById("cancel-delete-attachment");
+
+            if (cancelBtn) {
+                cancelBtn.click();
+            }
+
+            selectedDeleteButton = null;
+            selectedFileId = null;
+        }
     }
 
     function getCookie(name) {
         let cookieValue = null;
+
         if (document.cookie && document.cookie !== "") {
             const cookies = document.cookie.split(";");
+
             for (let cookie of cookies) {
                 cookie = cookie.trim();
+
                 if (cookie.startsWith(name + "=")) {
                     cookieValue = decodeURIComponent(
                         cookie.substring(name.length + 1)
@@ -126,18 +231,24 @@
     }
 
     document.querySelectorAll(".btn-delete-attach").forEach(button => {
+        button.addEventListener("click", function () {
+            selectedDeleteButton = this;
+            selectedFileId = this.dataset.fileId;
 
-        button.addEventListener("click", async function () {
+            const fileName = this.dataset.fileName || "";
+            const fileNameEl = document.getElementById("delete-attachment-name");
 
-            if (!confirmDelete()) {
-                return;
+            if (fileNameEl) {
+                fileNameEl.textContent = fileName;
             }
-
-            const fileId = this.dataset.fileId;
-
-            await handleDelete(fileId, this);
         });
-
     });
 
+    document.getElementById("confirm-delete-attachment").addEventListener("click", async function () {
+        if (!selectedFileId || !selectedDeleteButton) {
+            return;
+        }
+
+        await handleDelete(selectedFileId, selectedDeleteButton);
+    });
 </script>

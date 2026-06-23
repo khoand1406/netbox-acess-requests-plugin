@@ -107,6 +107,10 @@ class AccessRequest(NetBoxModel):
             AccessRequestStatusChoices.STATUS_PENDING,
             AccessRequestStatusChoices.STATUS_CONFIRMED
         )
+    
+    @property
+    def is_superuser_viewable(self):
+        return self.status != AccessRequestStatusChoices.STATUS_DRAFT
 
     @property
     def is_deletable(self):

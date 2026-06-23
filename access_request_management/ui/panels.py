@@ -77,13 +77,17 @@ class CustomImageAttachmentPanel(Panel):
     
     def get_context(self, context):
         obj= context["object"]
+        request= context["request"]
         uploaded_files= UploadedFile.objects.filter(
             model_name= obj._meta.model_name,
             object_id= obj.pk
         ).order_by("-created_at")
+        can_delete_attachment= (not request.user.is_superuser and obj.is_editable)
         return {
             **super().get_context(context),
             "uploaded_files": uploaded_files,
             "object": obj,
-            "model_name":obj._meta.model_name
+            "model_name":obj._meta.model_name,
+            "can_delete_attachment": can_delete_attachment,
         }
+    
